@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace LoanAPI.Data.Models
 {
@@ -21,6 +22,23 @@ namespace LoanAPI.Data.Models
 
         public UserRole Role { get; set; }
         public List<Loan>? Loans { get; set; }
+
+        public User() { }
+
+        // For creating users in code and tests
+        public User(int id, string firstname, string lastname,bool isBlocked, List<Loan> loans,double salary, UserRole role, string username, int age, string password)
+        {
+            Id = Id;
+            FirstName = firstname;
+            IsBlocked = isBlocked;
+            LastName = lastname;
+            UserName = username;
+            Age = age;
+            Salary = salary;
+            PasswordHash =password;
+            Role =role;
+            Loans = loans;
+    }
     }
 
     public enum UserRole

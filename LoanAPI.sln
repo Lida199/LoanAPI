@@ -3,11 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.11.35222.181
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoanAPI", "LoanAPI\LoanAPI.csproj", "{A86C5FE9-093F-42DB-BC86-D72238A23747}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LoanAPI", "LoanAPI\LoanAPI.csproj", "{A86C5FE9-093F-42DB-BC86-D72238A23747}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoanAPI.Domain", "LoanAPI.Domain\LoanAPI.Domain.csproj", "{8C5207A5-A9E9-43FE-B14B-5BF9E46E7613}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LoanAPI.Domain", "LoanAPI.Domain\LoanAPI.Domain.csproj", "{8C5207A5-A9E9-43FE-B14B-5BF9E46E7613}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoanAPI.Data", "LoanAPI.Data\LoanAPI.Data.csproj", "{DF4C0203-4701-484A-BBFD-3A35CFFF929C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LoanAPI.Data", "LoanAPI.Data\LoanAPI.Data.csproj", "{DF4C0203-4701-484A-BBFD-3A35CFFF929C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoanAPI.Tests", "LoanAPI.Tests\LoanAPI.Tests.csproj", "{4B540DE2-535B-4E04-98D2-2D9FFDF30C7A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,6 +29,10 @@ Global
 		{DF4C0203-4701-484A-BBFD-3A35CFFF929C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DF4C0203-4701-484A-BBFD-3A35CFFF929C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DF4C0203-4701-484A-BBFD-3A35CFFF929C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4B540DE2-535B-4E04-98D2-2D9FFDF30C7A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4B540DE2-535B-4E04-98D2-2D9FFDF30C7A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4B540DE2-535B-4E04-98D2-2D9FFDF30C7A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4B540DE2-535B-4E04-98D2-2D9FFDF30C7A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

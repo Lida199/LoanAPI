@@ -267,51 +267,79 @@ namespace LoanAPI.Controllers
         [HttpDelete("users/deleteUser/{id}")]
         public IActionResult DeleteUser([FromRoute] int id)
         {
-            var user = _context.Users.Find(id);
-            if (user == null)
-                return NotFound("No user with provided id.");
-
-            if (User.IsInRole("User"))
+            var success = _loanService.DeleteUser(id, User, out string status, out string message);
+            if (!success)
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (status.StartsWith("NotFound"))
+                    return NotFound(message);
 
-                if (!int.TryParse(userIdClaim, out var currentUserId))
-                    return NotFound("User ID Not Found.");
+                if (status.StartsWith("BadRequest"))
+                    return BadRequest(message);
 
-                if (currentUserId != id)
-                    return Forbid("You cannot delete another user's account.");
+                if (status.StartsWith("Forbidden"))
+                    return Forbid(message);
             }
 
-            _context.Users.Remove(user);
-            _context.SaveChanges();
-            return Ok($"Successfully deleted user with id {id}");
+            return Ok(message);
+            //var user = _context.Users.Find(id);
+            //if (user == null)
+            //    return NotFound("No user with provided id.");
+
+            //if (User.IsInRole("User"))
+            //{
+            //    var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            //    if (!int.TryParse(userIdClaim, out var currentUserId))
+            //        return NotFound("User ID Not Found.");
+
+            //    if (currentUserId != id)
+            //        return Forbid("You cannot delete another user's account.");
+            //}
+
+            //_context.Users.Remove(user);
+            //_context.SaveChanges();
+            //return Ok($"Successfully deleted user with id {id}");
         }
 
 
         [HttpDelete("loans/deleteLoan/{id}")]
         public IActionResult DeleteLoan([FromRoute] int id)
         {
-            var loan = _context.Loans.Find(id);
-            if (loan == null)
-                return NotFound("No loan with provided id.");
-
-            if (User.IsInRole("User"))
+            var success = _loanService.DeleteLoan(id, User, out string status, out string message);
+            if (!success)
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (status.StartsWith("NotFound"))
+                    return NotFound(message);
 
-                if (!int.TryParse(userIdClaim, out var currentUserId))
-                    return NotFound("User ID Not Found.");
+                if (status.StartsWith("BadRequest"))
+                    return BadRequest(message);
 
-                if (currentUserId != loan.UserId)
-                    return Forbid("You cannot delete another user's loan.");
-                if (loan.Status != LoanStatus.InProgress)
-                    return Forbid("You cannot delete loan that is approved or declined.");
+                if (status.StartsWith("Forbidden"))
+                    return Forbid(message);
             }
 
-            _context.Loans.Remove(loan);
-            _context.SaveChanges();
+            return Ok(message);
+            //var loan = _context.Loans.Find(id);
+            //if (loan == null)
+            //    return NotFound("No loan with provided id.");
 
-            return Ok($"Successfully deleted loan with id {id}");
+            //if (User.IsInRole("User"))
+            //{
+            //    var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            //    if (!int.TryParse(userIdClaim, out var currentUserId))
+            //        return NotFound("User ID Not Found.");
+
+            //    if (currentUserId != loan.UserId)
+            //        return Forbid("You cannot delete another user's loan.");
+            //    if (loan.Status != LoanStatus.InProgress)
+            //        return Forbid("You cannot delete loan that is approved or declined.");
+            //}
+
+            //_context.Loans.Remove(loan);
+            //_context.SaveChanges();
+
+            //return Ok($"Successfully deleted loan with id {id}");
         }
 
 
@@ -319,51 +347,24 @@ namespace LoanAPI.Controllers
         [HttpPut("loans/updateLoan/{id}")]
         public IActionResult UpdateLoan([FromBody] LoanUpdate loan, [FromRoute] int id)
         {
-            var selectedLoan = _context.Loans.Find(id);
-            if (selectedLoan == null)
-                return NotFound("No loan found to update.");
-
-            var validator = new UpdateLoanRequestValidator();
-            var validationResult = validator.Validate(loan);
-
-            if (!validationResult.IsValid)
+            var success = _loanService.UpdateLoan(id, loan, User, out string status,out string message);
+            if (!success)
             {
-                var errors = validationResult.Errors.Select(e => e.ErrorMessage).ToList();
-                return BadRequest(errors);
+                if (status.StartsWith("NotFound"))
+                    return NotFound(message);
+
+                if (status.StartsWith("BadRequest"))
+                    return BadRequest(message);
+
+                if (status.StartsWith("Forbidden"))
+                    return Forbid(message);
             }
 
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            int.TryParse(userIdClaim, out var currentUserId);
-
-            if (User.IsInRole("User"))
-            {
-                if (selectedLoan.UserId != currentUserId)
-                    return Forbid("You cannot update another user's loan.");
-
-                if (selectedLoan.Status != LoanStatus.InProgress)
-                    return Forbid("You can only update loans that are InProgress.");
-            }
-
-            selectedLoan.LoanType = loan.LoanType;
-            selectedLoan.Amount = loan.Amount;
-            selectedLoan.Currency = loan.Currency;
-            selectedLoan.LoanPeriod = loan.LoanPeriod;
-
-            if (User.IsInRole("Accountant"))
-            {
-                if (!loan.Status.HasValue)
-                    return BadRequest("Status is required for updating a loan.");
-
-                selectedLoan.Status = loan.Status.Value;
-            }
-
-            _context.SaveChanges();
-
-            return Ok($"Successfully updated loan with id {id}.");
+            return Ok(message);
         }
 
         [Authorize(Roles = "Accountant")]
-        [HttpPut("user/changeStatus/{id}")]
+        [HttpPut("users/changeStatus/{id}")]
         public IActionResult ChangeUserStatus([FromRoute] int id, [FromQuery, BindRequired] bool isBlocked )
         {
             var success = _loanService.ChangeUserStatus(id, isBlocked, out string message);
@@ -372,17 +373,6 @@ namespace LoanAPI.Controllers
                 return Ok(message);
 
             return NotFound(message);
-            //var user = _context.Users.Find(id);
-            //if (user != null)
-            //{
-            //    user.IsBlocked = isBlocked;
-            //    _context.SaveChanges();
-            //    return Ok($"Successfully Updated The User Status");
-            //}
-            //else
-            //{
-            //    return NotFound("No User With Provided Id");
-            //}
         }
     }
 }
