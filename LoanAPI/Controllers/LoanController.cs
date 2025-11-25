@@ -155,112 +155,165 @@ namespace LoanAPI.Controllers
         [HttpGet("loans/{id}")]
         public IActionResult GetLoanById([FromRoute] int id)
         {
+            var success = _loanService.GetLoanById(id, User, out string status, out string message, out Loan loan);
+
+            //ლიდა აქედან გაიტანე საერთოში 
+            if (!success)
             {
-                var loan = _context.Loans.Find(id);
-                if (loan == null)
-                    return NotFound("Loan not found.");
+                if (status.StartsWith("NotFound"))
+                    return NotFound(message);
 
-                if (User.IsInRole("User"))
-                {
-                    var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (status.StartsWith("BadRequest"))
+                    return BadRequest(message);
 
-                    if (!int.TryParse(userIdClaim, out var userId))
-                    {
-                        return NotFound("User ID not found.");
-                    }
+                if (status.StartsWith("Forbidden"))
+                    return Forbid(message);
 
-                    if (loan.UserId != userId)
-                    {
-                        return Forbid("You cannot access another user's loan.");
-                    }
-                }
-                return Ok(loan);
+                if (status.StartsWith("Conflict"))
+                    return Conflict(new { message = message });
             }
+
+            return Ok(loan);
+            //{
+            //    var loan = _context.Loans.Find(id);
+            //    if (loan == null)
+            //        return NotFound("Loan not found.");
+
+            //    if (User.IsInRole("User"))
+            //    {
+            //        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            //        if (!int.TryParse(userIdClaim, out var userId))
+            //        {
+            //            return NotFound("User ID not found.");
+            //        }
+
+            //        if (loan.UserId != userId)
+            //        {
+            //            return Forbid("You cannot access another user's loan.");
+            //        }
+            //    }
+            //    return Ok(loan);
+            //}
         }
       
         [AllowAnonymous]
         [HttpPost("addUser")]
         public IActionResult AddUser([FromBody] UserRegister userDetails)
         {
-            var validator = new AddUserRequestValidator();
-            var hasher = new PasswordHasher<User>();
-            var result = validator.Validate(userDetails);
-            if (result.IsValid)
-            {
-                if (_context.Users.Any(x => x.UserName == userDetails.UserName))
-                {
-                    return Conflict(new { message = "Username already exists" });
-                }
-           
-                var user = new User
-                {
-                    FirstName = userDetails.FirstName,
-                    LastName = userDetails.LastName,
-                    UserName = userDetails.UserName,
-                    Age = userDetails.Age,
-                    Salary = userDetails.Salary,
-                    IsBlocked = false,
-                    Role = userDetails.Role,
-                };
+            var success = _loanService.AddUser(userDetails, User, out string status, out string message);
 
-                user.PasswordHash = hasher.HashPassword(user, userDetails.Password);
-
-                _context.Users.Add(user);
-                _context.SaveChanges();
-                return Ok("User added successfully!");
-            }
-            else
+            //ლიდა აქედან გაიტანე საერთოში 
+            if (!success)
             {
-                var errors = result.Errors.Select(error => error.ErrorMessage).ToList();
-                return BadRequest(errors);
+                if (status.StartsWith("NotFound"))
+                    return NotFound(message);
+
+                if (status.StartsWith("BadRequest"))
+                    return BadRequest(message);
+
+                if (status.StartsWith("Forbidden"))
+                    return Forbid(message);
+
+                if (status.StartsWith("Conflict"))
+                    return Conflict(new { message = message });
             }
+
+            return Ok(message);
+
+            //var validator = new AddUserRequestValidator();
+            //var hasher = new PasswordHasher<User>();
+            //var result = validator.Validate(userDetails);
+            //if (result.IsValid)
+            //{
+            //    if (_context.Users.Any(x => x.UserName == userDetails.UserName))
+            //    {
+            //        return Conflict(new { message = "Username already exists" });
+            //    }
+
+            //    var user = new User
+            //    {
+            //        FirstName = userDetails.FirstName,
+            //        LastName = userDetails.LastName,
+            //        UserName = userDetails.UserName,
+            //        Age = userDetails.Age,
+            //        Salary = userDetails.Salary,
+            //        IsBlocked = false,
+            //        Role = userDetails.Role,
+            //    };
+
+            //    user.PasswordHash = hasher.HashPassword(user, userDetails.Password);
+
+            //    _context.Users.Add(user);
+            //    _context.SaveChanges();
+            //    return Ok("User added successfully!");
+            //}
+            //else
+            //{
+            //    var errors = result.Errors.Select(error => error.ErrorMessage).ToList();
+            //    return BadRequest(errors);
+            //}
         }
 
 
         [HttpPost("addLoan")]
         public IActionResult AddLoan([FromBody] LoanRegister loanDetails)
         {
-            var validator = new AddLoanRequestValidator();
-            var result = validator.Validate(loanDetails);
-            if (result.IsValid)
+            var success = _loanService.AddLoan(loanDetails, User, out string status, out string message);
+            if (!success)
             {
-                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (status.StartsWith("NotFound"))
+                    return NotFound(message);
 
-                if (!int.TryParse(userIdClaim, out var userId))
-                {
-                    return NotFound("User ID Not Found");
-                }
+                if (status.StartsWith("BadRequest"))
+                    return BadRequest(message);
 
-                var user = _context.Users.Find(userId);
-                if(user == null)
-                {
-                    return NotFound("User Not Found");
-                }
-
-                if (!user.IsBlocked)
-                {
-                var loan = new Loan
-                {
-                    LoanType = loanDetails.LoanType,
-                    Amount = loanDetails.Amount,
-                    Currency = loanDetails.Currency,
-                    LoanPeriod = loanDetails.LoanPeriod,
-                    Status = LoanStatus.InProgress,
-                    UserId = userId,
-                };
-
-                _context.Loans.Add(loan);
-                _context.SaveChanges();
-                return Ok("Loan added successfully!");
-                }
-
-                return Forbid("User is blocked and cannot perform this action.");
+                if (status.StartsWith("Forbidden"))
+                    return Forbid(message);
             }
-            else
-            {
-                var errors = result.Errors.Select(error => error.ErrorMessage).ToList();
-                return BadRequest(errors);
-            }
+
+            return Ok(message);
+            //var validator = new AddLoanRequestValidator();
+            //var result = validator.Validate(loanDetails);
+            //if (result.IsValid)
+            //{
+            //    var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            //    if (!int.TryParse(userIdClaim, out var userId))
+            //    {
+            //        return NotFound("User ID Not Found");
+            //    }
+
+            //    var user = _context.Users.Find(userId);
+            //    if(user == null)
+            //    {
+            //        return NotFound("User Not Found");
+            //    }
+
+            //    if (!user.IsBlocked)
+            //    {
+            //    var loan = new Loan
+            //    {
+            //        LoanType = loanDetails.LoanType,
+            //        Amount = loanDetails.Amount,
+            //        Currency = loanDetails.Currency,
+            //        LoanPeriod = loanDetails.LoanPeriod,
+            //        Status = LoanStatus.InProgress,
+            //        UserId = userId,
+            //    };
+
+            //    _context.Loans.Add(loan);
+            //    _context.SaveChanges();
+            //    return Ok("Loan added successfully!");
+            //    }
+
+            //    return Forbid("User is blocked and cannot perform this action.");
+            //}
+            //else
+            //{
+            //    var errors = result.Errors.Select(error => error.ErrorMessage).ToList();
+            //    return BadRequest(errors);
+            //}
         }
 
 
@@ -363,6 +416,7 @@ namespace LoanAPI.Controllers
             return Ok(message);
         }
 
+        // ლიდა ესაც გადააკეთე როგორც საჭიროა
         [Authorize(Roles = "Accountant")]
         [HttpPut("users/changeStatus/{id}")]
         public IActionResult ChangeUserStatus([FromRoute] int id, [FromQuery, BindRequired] bool isBlocked )

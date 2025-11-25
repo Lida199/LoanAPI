@@ -11,7 +11,6 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Security.Claims;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace LoanAPI.Tests
 {
@@ -41,6 +40,64 @@ namespace LoanAPI.Tests
 
             return new ClaimsPrincipal(identity);
         }
+
+
+        [Fact]
+        public void AddLoan_UserBlocked_ShouldReturnForbidden()
+        {
+            // Arrange
+            var userToAdd = new User(1, "name", "lastname", true, [], 5000, UserRole.Accountant, "username", 20, "strongpassword");
+            _context.Users.Add(userToAdd);
+            _context.SaveChanges();
+
+            var user = CreateUser(1, "User");
+            var loan = new LoanRegister { Amount = 10000, LoanType = LoanType.Auto, Currency = Currency.GEL, LoanPeriod = 12 };
+
+            // Act
+            var result = _service.AddLoan(loan, user, out string status, out string message);
+
+            // Assert
+            Assert.False(result);
+            Assert.Equal("Forbidden", status);
+            Assert.Equal("User is blocked and cannot perform this action.", message);
+        }
+
+        [Fact]
+        public void AddLoan_ValidRequest_ShouldReturnSuccess()
+        {
+            // Arrange
+            var userToAdd = new User(1, "name", "lastname", false, [], 5000, UserRole.Accountant, "username", 20, "strongpassword");
+            _context.Users.Add(userToAdd);
+            _context.SaveChanges();
+
+            var user = CreateUser(1,"User");
+            var loan = new LoanRegister { Amount = 10000, LoanType = LoanType.Insurance, Currency = Currency.EUR, LoanPeriod = 12 };
+
+            // Act
+            var result = _service.AddLoan(loan, user, out string status, out string message);
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal("Success", status);
+            Assert.Equal("Loan added successfully!", message);
+        }
+
+        [Fact]
+        public void AddLoan_InvalidModel_ShouldReturnBadRequest()
+        {
+            // Arrange
+            var user = CreateUser(1, "User");
+            var loan = new LoanRegister { Amount = 100, LoanType = LoanType.Insurance, Currency = Currency.EUR, LoanPeriod = 12 };
+
+            // Act
+            var result = _service.AddLoan(loan, user, out string status, out string message);
+
+            // Assert
+            Assert.False(result);
+            Assert.Equal("BadRequest", status);
+            Assert.Contains("Amount", "Please Indicate The Amount > 1000;"); 
+        }
+
 
         [Fact]
         public void DeleteUser_UserDoesNotExist_ShouldReturnNotFound()
