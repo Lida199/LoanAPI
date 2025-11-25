@@ -3,77 +3,209 @@ using LoanAPI.Domain;
 using LoanAPI.Models;
 using LoanAPI.Validators;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text;
 
 namespace LoanAPI.Services
 {
     public interface ILoanService
     {
+        public bool Login(UserLogin loginRequest, out string token, out string status, out string message);
         bool ChangeUserStatus(int id, bool isBlocked, out string message);
         bool UpdateLoan(int id, LoanUpdate model, ClaimsPrincipal user, out string status, out string message);
         public bool DeleteLoan(int id, ClaimsPrincipal user, out string status, out string message);
         public bool DeleteUser(int id, ClaimsPrincipal user, out string status, out string message);
         public bool AddLoan(LoanRegister loanDetails, ClaimsPrincipal user, out string status, out string message);
-        public bool AddUser(UserRegister userDetails, ClaimsPrincipal user, out string status, out string message);
+        public bool AddUser(UserRegister userDetails, out string status, out string message);
         public bool GetLoanById(int id, ClaimsPrincipal user, out string status, out string message, out Loan loan);
-
+        public bool GetLoans(ClaimsPrincipal user, out string status, out string message, out List<Loan> loansList);
+        public bool GetCurrentUser(ClaimsPrincipal user, out string status, out string message, out User currentUser);
     }
     public class LoanService: ILoanService
     {
 
         private readonly LoanContext _context;
+        private readonly AppSettings _appSettings;
 
-        public LoanService(LoanContext context)
+
+        public LoanService(LoanContext context, IOptions<AppSettings> appSettings)
         {
             _context = context;
+            _appSettings = appSettings.Value;
+
         }
 
-        public bool GetLoanById(int id, ClaimsPrincipal user, out string status, out string message, out Loan loan)
+        private string GenerateToken(User user)
         {
-            
-            var selectedLoan = _context.Loans.Find(id);
-            if (selectedLoan == null)
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.ASCII.GetBytes(_appSettings.Secret);
+            var tokenDescriptor = new SecurityTokenDescriptor
             {
-                message = "Loan not found.";
-                status = "NotFound";
-                loan = null;
+                Subject = new ClaimsIdentity(new Claim[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier,user.Id.ToString()),
+                    new Claim(ClaimTypes.Name,user.UserName),
+                    new Claim(ClaimTypes.Role,user.Role.ToString()),
+                }),
+                Expires = DateTime.UtcNow.AddDays(1),
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            return tokenHandler.WriteToken(token);
+        }
+
+        public bool Login(UserLogin loginRequest, out string token, out string status,out string message)
+        {
+            var person = _context.Users.SingleOrDefault(x => x.UserName == loginRequest.UserName);
+            if (person == null)
+            {
+                token = null;
+                status = "Unauthorized";
+                message = "Invalid username or password";
                 return false;
             }
-                //return NotFound("Loan not found.");
+            else
+            {
+                var hasher = new PasswordHasher<User>();
+                var result = hasher.VerifyHashedPassword(person, person.PasswordHash, loginRequest.Password);
 
-            if (user.IsInRole("User"))
+                if (result == PasswordVerificationResult.Failed)
+                {
+                    token = null;
+                    status = "Unauthorized";
+                    message = "Invalid username or password";
+                    return false;
+                }
+                var tokenString = GenerateToken(person);
+                token = tokenString;
+                status = "Success";
+                message = "token Generated Successfully";
+                return true;
+            }
+        }
+
+        public bool GetCurrentUser(ClaimsPrincipal user, out string status, out string message, out User currentUser)
+        {
+            var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (!int.TryParse(userIdClaim, out var userId))
+            {
+                currentUser = null;
+                status = "NotFound";
+                message = "User ID Not Found";
+                return false;
+            }
+
+            var selectedUser = _context.Users
+                .Where(u => u.Id == userId)
+                .Include(u => u.Loans)
+                .FirstOrDefault();
+
+            if (selectedUser == null)
+            {
+                currentUser = null;
+                status = "NotFound";
+                message = "User Information Not Found";
+                return false;
+            }
+
+            currentUser = selectedUser;
+            status = "Success";
+            message = "User Information Successfully Loaded";
+            return true; 
+        }
+
+        public bool GetLoans(ClaimsPrincipal user, out string status, out string message, out List<Loan> loansList)
+        {
+            if (user.IsInRole("Accountant"))
+            {
+                var loans = _context.Loans.ToList();
+                loansList = loans;
+                message = "Loans Successfully Loaded";
+                status = "Success";
+                return true;
+            }
+            else if (user.IsInRole("User"))
             {
                 var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
                 if (!int.TryParse(userIdClaim, out var userId))
                 {
-                message = "User ID not found.";
-                status = "NotFound";
-                loan = null;
-                return false;
-                //return NotFound("User ID not found.");
+                    loansList = null;
+                    message = "User ID Not Found";
+                    status = "NotFound";
+                    return false;
                 }
 
-                if (selectedLoan.UserId != userId)
+                var loans = _context.Loans
+                    .Where(l => l.UserId == userId)
+                    .ToList();
+
+                if (loans.Count == 0)
                 {
-                message = "You cannot access another user's loan.";
-                status = "Forbidden";
-                loan = null;
-                return false;
-                //return Forbid("You cannot access another user's loan.");
+                    loansList = null;
+                    message = "No loans found for this user.";
+                    status = "NotFound";
+                    return false;
                 }
-            }
-            message = "Loan Identified Successfully!";
-            status = "Success";
-            loan = selectedLoan;
-            return true;
-            //return Ok(selectedLoan);
 
+                loansList = loans;
+                message = "Loans Successfully Loaded";
+                status = "Success";
+                return true;
+            }
+            else
+            {
+                loansList = null;
+                message = "Not Allowed To Access Loans";
+                status = "Forbidden";
+                return false;
+            }
         }
 
-        public bool AddUser(UserRegister userDetails, ClaimsPrincipal user, out string status, out string message)
+        public bool GetLoanById(int id, ClaimsPrincipal user, out string status, out string message, out Loan loan)
+    {
+            
+        var selectedLoan = _context.Loans.Find(id);
+        if (selectedLoan == null)
+        {
+            message = "Loan not found.";
+            status = "NotFound";
+            loan = null;
+            return false;
+        }
+
+        if (user.IsInRole("User"))
+        {
+            var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (!int.TryParse(userIdClaim, out var userId))
+            {
+            message = "User ID not found.";
+            status = "NotFound";
+            loan = null;
+            return false;
+            }
+
+            if (selectedLoan.UserId != userId)
+            {
+            message = "You cannot access another user's loan.";
+            status = "Forbidden";
+            loan = null;
+            return false;
+            }
+        }
+        message = "Loan Identified Successfully!";
+        status = "Success";
+        loan = selectedLoan;
+        return true;
+    }
+
+        public bool AddUser(UserRegister userDetails, out string status, out string message)
         {
             var validator = new AddUserRequestValidator();
             var hasher = new PasswordHasher<User>();
@@ -85,7 +217,6 @@ namespace LoanAPI.Services
                     status = "Conflict";
                     message = "Username already exists";
                     return false;
-                    //return Conflict(new { message = "Username already exists" });
                 }
 
                 var userToAdd = new User
@@ -106,19 +237,16 @@ namespace LoanAPI.Services
                 status = "Success";
                 message = "User added successfully!";
                 return true;
-                //return Ok("User added successfully!");
             }
             else
             {
                 message = string.Join("; ", result.Errors.Select(e => e.ErrorMessage));
                 status = "BadRequest";
                 return false;
-                //var errors = result.Errors.Select(error => error.ErrorMessage).ToList();
-                //return BadRequest(errors);
             }
         }
 
-            public bool AddLoan(LoanRegister loanDetails, ClaimsPrincipal user, out string status, out string message)
+        public bool AddLoan(LoanRegister loanDetails, ClaimsPrincipal user, out string status, out string message)
         {
             var validator = new AddLoanRequestValidator();
             var result = validator.Validate(loanDetails);
@@ -139,7 +267,6 @@ namespace LoanAPI.Services
                     status = "NotFound";
                     message = "User Not Found";
                     return false;
-                    //return NotFound("User Not Found");
                 }
 
                 if (!selectedUser.IsBlocked)
@@ -156,7 +283,6 @@ namespace LoanAPI.Services
 
                     _context.Loans.Add(loan);
                     _context.SaveChanges();
-                    //return Ok("Loan added successfully!");
                     status = "Success";
                     message = "Loan added successfully!";
                     return true;
@@ -165,55 +291,49 @@ namespace LoanAPI.Services
                 status = "Forbidden";
                 message = "User is blocked and cannot perform this action.";
                 return false;
-                //return Forbid("User is blocked and cannot perform this action.");
             }
             else
             {
-                //var errors = result.Errors.Select(error => error.ErrorMessage).ToList();
-                //return BadRequest(errors);
                 status = "BadRequest";
                 message = string.Join("; ", result.Errors.Select(e => e.ErrorMessage));
                 return false;
             }
         }
 
-            public bool DeleteUser(int id, ClaimsPrincipal user, out string status, out string message)
+        public bool DeleteUser(int id, ClaimsPrincipal user, out string status, out string message)
         {
-            var selectedUser = _context.Users.Find(id);
-            if (selectedUser == null)
+        var selectedUser = _context.Users.Find(id);
+        if (selectedUser == null)
+        {
+            status = "NotFound";
+            message = "No user with provided id.";
+            return false;
+        }
+
+        if (user.IsInRole("User"))
+        {
+            var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (!int.TryParse(userIdClaim, out var currentUserId))
             {
                 status = "NotFound";
-                message = "No user with provided id.";
+                message = "User ID Not Found.";
                 return false;
             }
-                //return NotFound("No user with provided id.");
 
-            if (user.IsInRole("User"))
+            if (currentUserId != id)
             {
-                var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-                if (!int.TryParse(userIdClaim, out var currentUserId))
-                {
-                    status = "NotFound";
-                    message = "User ID Not Found.";
-                    return false;
-                }
-                //return NotFound("User ID Not Found.");
-
-                if (currentUserId != id)
-                {
-                    status = "Forbidden";
-                    message = "You cannot delete another user's account.";
-                    return false;
-                }
-                //return Forbid("You cannot delete another user's account.");
+                status = "Forbidden";
+                message = "You cannot delete another user's account.";
+                return false;
             }
+        }
 
-            _context.Users.Remove(selectedUser);
-            _context.SaveChanges();
-            status = "Success";
-            message = $"Successfully deleted user with id {id}";
-            return true;
+        _context.Users.Remove(selectedUser);
+        _context.SaveChanges();
+        status = "Success";
+        message = $"Successfully deleted user with id {id}";
+        return true;
         }
 
         public bool DeleteLoan(int id, ClaimsPrincipal user, out string status, out string message)

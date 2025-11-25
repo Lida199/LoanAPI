@@ -2,14 +2,8 @@ using LoanAPI.Data.Models;
 using LoanAPI.Domain;
 using LoanAPI.Models;
 using LoanAPI.Services;
-using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Mono.TextTemplating;
-using Moq;
-using Moq.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Data;
 using System.Security.Claims;
 
 namespace LoanAPI.Tests
@@ -25,9 +19,16 @@ namespace LoanAPI.Tests
                 .UseInMemoryDatabase(Guid.NewGuid().ToString())   
                 .Options;
 
-            _context = new LoanContext(options);
 
-            _service = new LoanService(_context);
+            _context = new LoanContext(options);
+            var appSettings = new AppSettings
+            {
+                Secret = "secret for commschool final project number two"
+            };
+
+            var optionsMock = Microsoft.Extensions.Options.Options.Create(appSettings);
+
+            _service = new LoanService(_context, optionsMock);
         }
 
         private ClaimsPrincipal CreateUser(int userId, string role)
@@ -39,6 +40,299 @@ namespace LoanAPI.Tests
             });
 
             return new ClaimsPrincipal(identity);
+        }
+
+        [Fact]
+        public void Login_ValidUser_ReturnsToken()
+        {
+            // Arrange
+            var userToAdd = new User(
+                1,
+                "name",
+                "lastname",
+                true,
+                [],
+                5000,
+                UserRole.Accountant,
+                "username",
+                20,
+                null 
+            );
+            var hasher = new PasswordHasher<User>();
+            userToAdd.PasswordHash = hasher.HashPassword(userToAdd, "strongpassword");
+
+            _context.Users.Add(userToAdd);
+            _context.SaveChanges();
+
+            var loginRequest = new UserLogin
+            {
+                UserName = "username",
+                Password = "strongpassword"
+            };
+
+            // Act
+            var result = _service.Login(loginRequest, out string token, out string status, out string message);
+
+            // Assert
+            Assert.True(result);
+            Assert.NotNull(token);
+            Assert.Equal("Success", status);
+            Assert.Equal("token Generated Successfully", message);
+        }
+
+        [Fact]
+        public void GetCurrentUser_ValidUser_ReturnsSuccess()
+        {
+            // Arrange
+            var userToAdd = new User(1, "name", "lastname", true, [], 5000, UserRole.Accountant, "username", 20, "strongpassword");
+            _context.Users.Add(userToAdd);
+            _context.SaveChanges();
+            var user = CreateUser(1, "Accountant");
+
+            // Act
+            var result = _service.GetCurrentUser(user, out string status, out string message, out User currentUser);
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal("Success", status);
+            Assert.Equal("User Information Successfully Loaded", message);
+            Assert.NotNull(currentUser);
+            Assert.Equal(1, currentUser.Id);
+        }
+
+        [Fact]
+        public void Login_InvalidPassword_ReturnsUnauthorized()
+        {
+            // Arrange
+            var userToAdd = new User(
+                1,
+                "name",
+                "lastname",
+                true,
+                [],
+                5000,
+                UserRole.Accountant,
+                "username",
+                20,
+                null
+            );
+
+            var hasher = new PasswordHasher<User>();
+            userToAdd.PasswordHash = hasher.HashPassword(userToAdd, "correctpassword");
+
+            _context.Users.Add(userToAdd);
+            _context.SaveChanges();
+
+            var loginRequest = new UserLogin
+            {
+                UserName = "username",
+                Password = "wrongpassword"
+            };
+
+            // Act
+            var result = _service.Login(loginRequest, out string token, out string status, out string message);
+
+            // Assert
+            Assert.False(result);
+            Assert.Null(token);
+            Assert.Equal("Unauthorized", status);
+            Assert.Equal("Invalid username or password", message);
+        }
+
+        [Fact]
+        public void GetCurrentUser_InvalidUserIdClaim_ReturnsNotFound()
+        {
+            // Arrange
+            var user = CreateUser(1, "Accountant");
+
+            // Act
+            var result = _service.GetCurrentUser(user, out string status, out string message, out User currentUser);
+
+            // Assert
+            Assert.False(result);
+            Assert.Equal("NotFound", status);
+            Assert.Null(currentUser);
+        }
+
+        [Fact]
+        public void GetLoans_Accountant_GetsAllLoans()
+        {
+            // Arrange
+            var loanToAdd = new Loan(1, LoanType.Rapid, 5000, Currency.GEL, 12, LoanStatus.InProgress, 12);
+            var loanToAdd2 = new Loan(2, LoanType.Auto, 15000, Currency.GEL, 12, LoanStatus.InProgress, 12);
+            _context.Loans.Add(loanToAdd);
+            _context.Loans.Add(loanToAdd2);
+            _context.SaveChanges();
+            var user = CreateUser(20, "Accountant");
+
+            // Act
+            var result = _service.GetLoans(user, out string status, out string message, out List<Loan> loansList);
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal("Success", status);
+            Assert.Equal("Loans Successfully Loaded", message);
+            Assert.NotNull(loansList);
+            Assert.Equal(2, loansList.Count);
+        }
+
+        [Fact]
+        public void GetLoans_UserWithNoLoans_ReturnsNotFound()
+        {
+            // Arrange
+            var user = CreateUser(20, "User");
+
+            // Act
+            var result = _service.GetLoans(user, out string status, out string message, out List<Loan> loansList);
+
+            // Assert
+            Assert.False(result);
+            Assert.Equal("NotFound", status);
+            Assert.Equal("No loans found for this user.", message);
+            Assert.Null(loansList);
+        }
+
+        [Fact]
+        public void GetLoanById_LoanNotFound_ReturnsNotFound()
+        {
+            // Arrange
+            var user = CreateUser(3,"Admin");
+
+            // Act
+            var result = _service.GetLoanById(99, user, out string status, out string message, out Loan loan);
+
+            // Assert
+            Assert.False(result);
+            Assert.Equal("NotFound", status);
+            Assert.Equal("Loan not found.", message);
+            Assert.Null(loan);
+        }
+
+        [Fact]
+        public void GetLoanById_LoanOwnedByAnotherUser_ReturnsForbidden()
+        {
+            // Arrange
+            var loanToAdd = new Loan(1, LoanType.Rapid, 5000, Currency.GEL, 12, LoanStatus.InProgress, 12);
+            _context.Loans.Add(loanToAdd);
+            _context.SaveChanges();
+            var user = CreateUser(20, "User");
+
+            // Act
+            var result = _service.GetLoanById(1, user, out string status, out string message, out Loan loan);
+
+            // Assert
+            Assert.False(result);
+            Assert.Equal("Forbidden", status);
+            Assert.Equal("You cannot access another user's loan.", message);
+            Assert.Null(loan);
+        }
+
+        [Fact]
+        public void GetLoanById_ValidUser_ReturnsSuccess()
+        {
+            // Arrange
+            var loanToAdd = new Loan(1, LoanType.Rapid, 5000, Currency.GEL, 12, LoanStatus.InProgress, 12);
+            _context.Loans.Add(loanToAdd);
+            _context.SaveChanges();
+            var user = CreateUser(12, "User");
+
+            // Act
+            var result = _service.GetLoanById(1, user, out string status, out string message, out Loan loan);
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal("Success", status);
+            Assert.Equal("Loan Identified Successfully!", message);
+            Assert.NotNull(loan);
+            Assert.Equal(1, loan.Id);
+        }
+
+        [Fact]
+        public void AddUser_InvalidModel_ReturnsBadRequest()
+        {
+            // Arrange
+            var user = new UserRegister
+            {
+
+                FirstName = "1",
+                LastName = "lastName1",
+                UserName = "Username",
+                Password = "NewPassword1",
+                Age = 24,
+                Salary = 8000,
+                Role = UserRole.Accountant
+            };
+
+            // Act
+            var result = _service.AddUser(user, out string status, out string message);
+
+            // Assert
+            Assert.False(result);
+            Assert.Equal("BadRequest", status);
+        }
+
+        [Fact]
+        public void AddUser_UsernameExists_ReturnsConflict()
+        {
+            // Arrange
+            var user = new User
+            {
+
+                FirstName = "name",
+                LastName = "lastName",
+                UserName = "Username",
+                PasswordHash = "NewPassword",
+                Age = 23,
+                Salary = 8000,
+                Role = UserRole.Accountant,
+                IsBlocked = false
+            };
+            _context.Users.Add(user);
+            _context.SaveChanges();
+
+            var user2 = new UserRegister
+            {
+
+                FirstName = "name1",
+                LastName = "lastName1",
+                UserName = "Username",
+                Password = "NewPassword1",
+                Age = 24,
+                Salary = 8000,
+                Role = UserRole.Accountant
+            };
+
+            // Act
+            var result = _service.AddUser(user2, out string status, out string message);
+
+            // Assert
+            Assert.False(result);
+            Assert.Equal("Conflict", status);
+            Assert.Equal("Username already exists", message);
+        }
+
+        [Fact]
+        public void AddUser_ValidUser_ReturnsTrue()
+        {
+            // Arrange
+            var user = new UserRegister{
+
+                FirstName = "name",
+                LastName = "lastName",
+                UserName = "Username",
+                Password = "NewPassword",
+                Age = 23,
+                Salary = 8000,
+                Role = UserRole.Accountant
+            };
+                
+            // Act
+            var result = _service.AddUser(user, out string status, out string message);
+
+            // Assert
+            Assert.True(result);
+            Assert.Equal("Success", status);
+            Assert.Equal("User added successfully!", message);
         }
 
 

@@ -18,6 +18,10 @@ namespace LoanAPI.Data.Models
         public LoanStatus Status { get; set; }
         public int UserId { get; set; }
 
+        public Loan()
+        {
+        }
+
         public Loan(int id, LoanType loanType, double amount, Currency currency, int loanPeriod, LoanStatus status, int userId)
         {
             Id = id;
@@ -29,10 +33,6 @@ namespace LoanAPI.Data.Models
             UserId = userId;
         }
 
-        public Loan()
-        {
-
-        }
     }
 
     public enum LoanType
