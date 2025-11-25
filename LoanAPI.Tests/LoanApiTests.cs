@@ -4,6 +4,7 @@ using LoanAPI.Models;
 using LoanAPI.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 
 namespace LoanAPI.Tests
@@ -27,8 +28,9 @@ namespace LoanAPI.Tests
             };
 
             var optionsMock = Microsoft.Extensions.Options.Options.Create(appSettings);
+            var logger = new LoggerFactory().CreateLogger<LoanService>();
 
-            _service = new LoanService(_context, optionsMock);
+            _service = new LoanService(_context, optionsMock, logger);
         }
 
         private ClaimsPrincipal CreateUser(int userId, string role)

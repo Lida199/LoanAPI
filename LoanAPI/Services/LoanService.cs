@@ -30,13 +30,15 @@ namespace LoanAPI.Services
 
         private readonly LoanContext _context;
         private readonly AppSettings _appSettings;
+        private readonly ILogger<LoanService> _logger;
 
 
-        public LoanService(LoanContext context, IOptions<AppSettings> appSettings)
+
+        public LoanService(LoanContext context, IOptions<AppSettings> appSettings, ILogger<LoanService> logger)
         {
             _context = context;
             _appSettings = appSettings.Value;
-
+            _logger = logger;
         }
 
         private string GenerateToken(User user)
@@ -66,6 +68,7 @@ namespace LoanAPI.Services
                 token = null;
                 status = "Unauthorized";
                 message = "Invalid username or password";
+                _logger.LogError($"{status}:{message}");
                 return false;
             }
             else
@@ -78,12 +81,14 @@ namespace LoanAPI.Services
                     token = null;
                     status = "Unauthorized";
                     message = "Invalid username or password";
+                    _logger.LogError($"{status}:{message}");
                     return false;
                 }
                 var tokenString = GenerateToken(person);
                 token = tokenString;
                 status = "Success";
                 message = "token Generated Successfully";
+                _logger.LogInformation($"{status}:{message} for user-{person.UserName}");
                 return true;
             }
         }

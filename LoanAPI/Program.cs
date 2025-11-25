@@ -5,6 +5,7 @@ using LoanAPI.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using NLog.Web;
 using System.Text;
 
 namespace LoanAPI
@@ -49,6 +50,9 @@ namespace LoanAPI
             builder.Services.AddSwaggerGen();
             builder.Services.AddScoped<ILoanService, LoanService>();
 
+            builder.Logging.ClearProviders();
+            builder.Logging.SetMinimumLevel(LogLevel.Information);
+            builder.Host.UseNLog();
 
             var app = builder.Build();
 

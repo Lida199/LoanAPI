@@ -34,7 +34,7 @@ namespace LoanAPI.Controllers
 
             if (!success)
             {
-                HandleStatus(status, message);
+                return HandleStatus(status, message);
             }
 
             return Ok(new { Token = token });
@@ -65,7 +65,7 @@ namespace LoanAPI.Controllers
 
             if (!success)
             {
-                HandleStatus(status, message);
+                return HandleStatus(status, message);
             }
 
             return Ok(currentUser);
@@ -78,7 +78,7 @@ namespace LoanAPI.Controllers
 
             if (!success)
             {
-                HandleStatus(status, message);
+                return HandleStatus(status, message);
             }
 
             return Ok(loans);
@@ -91,7 +91,7 @@ namespace LoanAPI.Controllers
 
             if (!success)
             {
-                HandleStatus(status, message);
+                return HandleStatus(status, message);
             }
 
             return Ok(loan);
@@ -105,7 +105,7 @@ namespace LoanAPI.Controllers
 
             if (!success)
             {
-                HandleStatus(status, message);
+                return HandleStatus(status, message);
             }
 
             return Ok(message);
@@ -118,7 +118,7 @@ namespace LoanAPI.Controllers
             var success = _loanService.AddLoan(loanDetails, User, out string status, out string message);
             if (!success)
             {
-                HandleStatus(status, message);
+                return HandleStatus(status, message);
             }
 
             return Ok(message);
@@ -131,7 +131,7 @@ namespace LoanAPI.Controllers
             var success = _loanService.DeleteUser(id, User, out string status, out string message);
             if (!success)
             {
-                HandleStatus(status, message);
+                return HandleStatus(status, message);
             }
 
             return Ok(message);
@@ -144,7 +144,7 @@ namespace LoanAPI.Controllers
             var success = _loanService.DeleteLoan(id, User, out string status, out string message);
             if (!success)
             {
-                HandleStatus(status, message);
+                return HandleStatus(status, message);
             }
 
             return Ok(message);
@@ -158,7 +158,7 @@ namespace LoanAPI.Controllers
             var success = _loanService.UpdateLoan(id, loan, User, out string status,out string message);
             if (!success)
             {
-                HandleStatus(status, message);
+                return HandleStatus(status, message);
             }
 
             return Ok(message);
