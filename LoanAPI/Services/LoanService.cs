@@ -68,7 +68,7 @@ namespace LoanAPI.Services
                 token = null;
                 status = "Unauthorized";
                 message = "Invalid username or password";
-                _logger.LogError($"{status}:{message}");
+                _logger.LogError($"User Login-{status}:{message}");
                 return false;
             }
             else
@@ -81,14 +81,14 @@ namespace LoanAPI.Services
                     token = null;
                     status = "Unauthorized";
                     message = "Invalid username or password";
-                    _logger.LogError($"{status}:{message}");
+                    _logger.LogError($"User Login-{status}:{message}");
                     return false;
                 }
                 var tokenString = GenerateToken(person);
                 token = tokenString;
                 status = "Success";
                 message = "token Generated Successfully";
-                _logger.LogInformation($"{status}:{message} for user-{person.UserName}");
+                _logger.LogInformation($"User Login-{status}:{message} for user-{person.UserName}");
                 return true;
             }
         }
@@ -102,6 +102,7 @@ namespace LoanAPI.Services
                 currentUser = null;
                 status = "NotFound";
                 message = "User ID Not Found";
+                _logger.LogError($"Current User Details-{status}:{message}");
                 return false;
             }
 
@@ -115,12 +116,14 @@ namespace LoanAPI.Services
                 currentUser = null;
                 status = "NotFound";
                 message = "User Information Not Found";
+                _logger.LogError($"Current User Details-{status}:{message}");
                 return false;
             }
 
             currentUser = selectedUser;
             status = "Success";
             message = "User Information Successfully Loaded";
+            _logger.LogInformation($"Current User Details-{status}:{message} for user {userId}");
             return true; 
         }
 
@@ -132,6 +135,7 @@ namespace LoanAPI.Services
                 loansList = loans;
                 message = "Loans Successfully Loaded";
                 status = "Success";
+                _logger.LogInformation($"Getting Loans-{status}:{message}");
                 return true;
             }
             else if (user.IsInRole("User"))
@@ -143,6 +147,7 @@ namespace LoanAPI.Services
                     loansList = null;
                     message = "User ID Not Found";
                     status = "NotFound";
+                    _logger.LogError($"Getting Loans-{status}:{message}");
                     return false;
                 }
 
@@ -155,12 +160,14 @@ namespace LoanAPI.Services
                     loansList = null;
                     message = "No loans found for this user.";
                     status = "NotFound";
+                    _logger.LogError($"Getting Loans-{status}:{message}");
                     return false;
                 }
 
                 loansList = loans;
                 message = "Loans Successfully Loaded";
                 status = "Success";
+                _logger.LogInformation($"Getting Loans-{status}:{message}");
                 return true;
             }
             else
@@ -168,12 +175,13 @@ namespace LoanAPI.Services
                 loansList = null;
                 message = "Not Allowed To Access Loans";
                 status = "Forbidden";
+                _logger.LogError($"Getting Loans-{status}:{message}");
                 return false;
             }
         }
 
         public bool GetLoanById(int id, ClaimsPrincipal user, out string status, out string message, out Loan loan)
-    {
+        {
             
         var selectedLoan = _context.Loans.Find(id);
         if (selectedLoan == null)
@@ -181,6 +189,7 @@ namespace LoanAPI.Services
             message = "Loan not found.";
             status = "NotFound";
             loan = null;
+            _logger.LogError($"Getting Loans By ID-{status}:{message}");
             return false;
         }
 
@@ -190,25 +199,28 @@ namespace LoanAPI.Services
 
             if (!int.TryParse(userIdClaim, out var userId))
             {
-            message = "User ID not found.";
-            status = "NotFound";
-            loan = null;
-            return false;
+                message = "User ID not found.";
+                status = "NotFound";
+                loan = null;
+                _logger.LogError($"Getting Loans By ID-{status}:{message}");
+                return false;
             }
 
             if (selectedLoan.UserId != userId)
             {
-            message = "You cannot access another user's loan.";
-            status = "Forbidden";
-            loan = null;
-            return false;
+                message = "You cannot access another user's loan.";
+                status = "Forbidden";
+                loan = null;
+                _logger.LogError($"Getting Loans By ID-{status}:{message}");
+                return false;
             }
         }
         message = "Loan Identified Successfully!";
         status = "Success";
         loan = selectedLoan;
+        _logger.LogInformation($"Getting Loans By ID-{status}:{message} with ID-{selectedLoan.Id}");
         return true;
-    }
+        }
 
         public bool AddUser(UserRegister userDetails, out string status, out string message)
         {
@@ -221,6 +233,7 @@ namespace LoanAPI.Services
                 {
                     status = "Conflict";
                     message = "Username already exists";
+                    _logger.LogError($"Adding User-{status}:{message}");
                     return false;
                 }
 
@@ -241,12 +254,14 @@ namespace LoanAPI.Services
                 _context.SaveChanges();
                 status = "Success";
                 message = "User added successfully!";
+                _logger.LogInformation($"Adding User-{status}:{message} with username: {userToAdd.UserName}");
                 return true;
             }
             else
             {
                 message = string.Join("; ", result.Errors.Select(e => e.ErrorMessage));
                 status = "BadRequest";
+                _logger.LogError($"Adding User-{status}:{message}");
                 return false;
             }
         }
@@ -263,6 +278,7 @@ namespace LoanAPI.Services
                 {
                     status = "NotFound";
                     message = "User ID Not Found";
+                    _logger.LogError($"Adding Loan-{status}:{message}");
                     return false;
                 }
 
@@ -271,6 +287,7 @@ namespace LoanAPI.Services
                 {
                     status = "NotFound";
                     message = "User Not Found";
+                    _logger.LogError($"Adding Loan-{status}:{message}");
                     return false;
                 }
 
@@ -290,17 +307,20 @@ namespace LoanAPI.Services
                     _context.SaveChanges();
                     status = "Success";
                     message = "Loan added successfully!";
+                    _logger.LogInformation($"Adding Loan-{status}:{message}");
                     return true;
                 }
 
                 status = "Forbidden";
                 message = "User is blocked and cannot perform this action.";
+                _logger.LogError($"Adding Loan-{status}:{message}");
                 return false;
             }
             else
             {
                 status = "BadRequest";
                 message = string.Join("; ", result.Errors.Select(e => e.ErrorMessage));
+                _logger.LogError($"Adding Loan-{status}:{message}");
                 return false;
             }
         }
@@ -312,6 +332,7 @@ namespace LoanAPI.Services
         {
             status = "NotFound";
             message = "No user with provided id.";
+            _logger.LogError($"Delete User-{status}:{message}");
             return false;
         }
 
@@ -323,6 +344,7 @@ namespace LoanAPI.Services
             {
                 status = "NotFound";
                 message = "User ID Not Found.";
+                _logger.LogError($"Delete User-{status}:{message}");
                 return false;
             }
 
@@ -330,6 +352,7 @@ namespace LoanAPI.Services
             {
                 status = "Forbidden";
                 message = "You cannot delete another user's account.";
+                _logger.LogError($"Delete User-{status}:{message}");
                 return false;
             }
         }
@@ -338,6 +361,7 @@ namespace LoanAPI.Services
         _context.SaveChanges();
         status = "Success";
         message = $"Successfully deleted user with id {id}";
+        _logger.LogInformation($"Delete User-{status}:{message}");
         return true;
         }
 
@@ -348,6 +372,7 @@ namespace LoanAPI.Services
             {
                 status = "NotFound";
                 message = "No loan with provided id.";
+                _logger.LogError($"Delete Loan-{status}:{message}");
                 return false;
             }
 
@@ -359,6 +384,7 @@ namespace LoanAPI.Services
                 {
                     status = "NotFound";
                     message = "User ID Not Found.";
+                    _logger.LogError($"Delete Loan-{status}:{message}");
                     return false;
                 }
 
@@ -366,6 +392,7 @@ namespace LoanAPI.Services
                 {
                     status = "Forbidden";
                     message = "You cannot delete another user's loan.";
+                    _logger.LogError($"Delete Loan-{status}:{message}");
                     return false;
                 }
 
@@ -373,6 +400,7 @@ namespace LoanAPI.Services
                 {
                     status = "Forbidden";
                     message = "You cannot delete loan that is approved or declined.";
+                    _logger.LogError($"Delete Loan-{status}:{message}");
                     return false;
                 }
             }
@@ -382,6 +410,7 @@ namespace LoanAPI.Services
 
             status = "Success";
             message = ($"Successfully deleted loan with id {id}");
+            _logger.LogInformation($"Delete Loan-{status}:{message}");
             return true;
         }
 
@@ -392,6 +421,7 @@ namespace LoanAPI.Services
             {
                 status = "NotFound";
                 message = "No loan found to update.";
+                _logger.LogError($"Update Loan-{status}:{message}");
                 return false;
             }
 
@@ -402,6 +432,7 @@ namespace LoanAPI.Services
             {
                 status = "BadRequest";
                 message = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage));
+                _logger.LogError($"Update Loan-{status}:{message}");
                 return false;
             }
 
@@ -415,6 +446,7 @@ namespace LoanAPI.Services
                 {
                     status = "Forbidden";
                     message = "You cannot update another user's loan.";
+                    _logger.LogError($"Update Loan-{status}:{message}");
                     return false;
                 }
 
@@ -422,6 +454,7 @@ namespace LoanAPI.Services
                 {
                     status = "Forbidden";
                     message = "You can only update loans that are InProgress.";
+                    _logger.LogError($"Update Loan-{status}:{message}");
                     return false;
                 }
             }
@@ -436,6 +469,7 @@ namespace LoanAPI.Services
                 {
                     status = "BadRequest";
                     message = "Status is required for updating a loan.";
+                    _logger.LogError($"Update Loan-{status}:{message}");
                     return false;
                 }
 
@@ -445,6 +479,7 @@ namespace LoanAPI.Services
             _context.SaveChanges();
             status = "Success";
             message = $"Successfully updated loan with id {id}.";
+            _logger.LogInformation($"Update Loan-{status}:{message}");
             return true;
 
         }
@@ -456,6 +491,7 @@ namespace LoanAPI.Services
             if (user == null)
             {
                 message = "No User With Provided Id";
+                _logger.LogError($"Change User Status-{message}");
                 return false;
             }
 
@@ -463,6 +499,7 @@ namespace LoanAPI.Services
             _context.SaveChanges();
 
             message = "Successfully Updated The User Status";
+            _logger.LogInformation($"Change User Status-{message}");
             return true;
         }
     }
